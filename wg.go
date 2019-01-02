@@ -44,9 +44,9 @@ func (i Interface) Bytes() []byte {
 // Peer is a Wireguard peer
 type Peer struct {
 	PublicKey           string
-	Endpoint            string   // host:port
-	AllowedIPs          []string // ip/mask
 	PresharedKey        string
+	AllowedIPs          []string // ip/mask
+	Endpoint            string   // host:port
 	PersistentKeepalive int
 
 	// Show only
@@ -63,15 +63,19 @@ func (p Peer) Bytes() []byte {
 	if p.PublicKey != "" {
 		buf.WriteString("PublicKey = " + p.PublicKey + "\n")
 	}
-	if p.Endpoint != "" {
-		buf.WriteString("Endpint = " + p.Endpoint + "\n")
+	if p.PresharedKey != "" {
+		buf.WriteString("PresharedKey = " + p.PresharedKey + "\n")
 	}
 	if len(p.AllowedIPs) != 0 {
 		buf.WriteString("AllowedIPs = " + strings.Join(p.AllowedIPs, ",") + "\n")
 	}
-	if p.PresharedKey != "" {
-		buf.WriteString("PresharedKey = " + p.PresharedKey + "\n")
+	if p.Endpoint != "" {
+		buf.WriteString("Endpint = " + p.Endpoint + "\n")
 	}
+	if p.PersistentKeepalive != 0 {
+		buf.WriteString("PersistentKeepalive = " + strconv.Itoa(p.PersistentKeepalive) + "\n")
+	}
+	buf.WriteString("\n")
 	return buf.Bytes()
 }
 
@@ -90,48 +94,133 @@ func NewConfBytes(bb []byte) (*Conf, error) {
 	lines := strings.Split(string(bb), "\n")
 	for i := 0; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			continue
+		}
 		words := strings.SplitN(line, " ", 3)
-		switch {
+		switch words[0] {
 
 		// Interface
-		case strings.Contains(line, "Interface"):
-			// nop
-		case strings.Contains(line, "ListenPort"):
+		case "ListenPort":
 			c.Interface.ListenPort, err = strconv.Atoi(words[2])
 			if err != nil {
 				return c, fmt.Errorf("error parsing ListenPort: %v", err)
 			}
-		case strings.Contains(line, "FwMark"):
+		case "FwMark":
 			c.Interface.FwMark = words[2]
-		case strings.Contains(line, "PrivateKey"):
+		case "PrivateKey":
 			c.Interface.PrivateKey = words[2]
 
 		// Peer
-		case strings.Contains(line, "Peer"):
+		case "[Peer]":
 			c.Peers = append(c.Peers)
 			p = len(c.Peers)
-		case strings.Contains(line, "PublicKey"):
+		case "PublicKey":
 			c.Peers[p].PublicKey = words[2]
-		case strings.Contains(line, "Endpoint"):
+		case "Endpoint":
 			c.Peers[p].Endpoint = words[2]
-		case strings.Contains(line, "AllowedIPs"):
+		case "AllowedIPs":
 			for _, ip := range strings.Split(words[2], ",") {
 				c.Peers[p].AllowedIPs = append(c.Peers[p].AllowedIPs, strings.TrimSpace(ip))
 			}
-		case strings.Contains(line, "PresharedKey"):
+		case "PresharedKey":
 			c.Peers[p].PresharedKey = words[2]
-		case strings.Contains(line, "PersistentKeepalive"):
-			c.Peers[p].PersistentKeepalive, err = strconv.Atoi(words[2])
-			if err != nil {
-				return c, fmt.Errorf("error parsing PersistentKeepalive: %v", err)
+		case "PersistentKeepalive":
+			if words[2] == "off" {
+				c.Peers[p].PersistentKeepalive = 0
+			} else {
+				c.Peers[p].PersistentKeepalive, err = strconv.Atoi(words[2])
+				if err != nil {
+					return c, fmt.Errorf("error parsing PersistentKeepalive: %v", err)
+				}
 			}
 
-		// Ignore empty lines
-		case line == "":
-			// nop
 		// Unknown key
 		default:
 			return c, fmt.Errorf("unkown key: %v", line)
+		}
+	}
+	return c, nil
+}
+
+// NewStatusBytes decodes bytes into a conf
+func NewStatusBytes(bb []byte) (*Conf, error) {
+	var err error
+	var c = &Conf{}
+	var p int
+
+	lines := strings.Split(string(bb), "\n")
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			continue
+		}
+		words := strings.SplitN(line, ":", 2)
+		switch words[0] {
+
+		// Interface
+		case "interface":
+			// nop
+		case "public key":
+			c.Interface.PublicKey = strings.TrimSpace(words[1])
+		case "private key":
+			c.Interface.PrivateKey = strings.TrimSpace(words[1])
+		case "listening port":
+			c.Interface.ListenPort, err = strconv.Atoi(words[1])
+			if err != nil {
+				return c, fmt.Errorf("error parsing ListenPort: %v", err)
+			}
+		case "fwmark":
+			c.Interface.FwMark = strings.TrimSpace(words[1])
+
+		// Peer
+		case "peer":
+			c.Peers = append(c.Peers)
+			p = len(c.Peers)
+			c.Peers[p].PublicKey = strings.TrimSpace(words[1])
+		case "endpoint":
+			c.Peers[p].Endpoint = strings.TrimSpace(words[1])
+		case "allowed ips":
+			for _, ip := range strings.Split(words[1], ",") {
+				c.Peers[p].AllowedIPs = append(c.Peers[p].AllowedIPs, strings.TrimSpace(ip))
+			}
+		case "preshared key":
+			c.Peers[p].PresharedKey = words[1]
+		case "transfer":
+			var v = make([]float32, 2)
+			var u = make([]string, 2)
+			_, err := fmt.Sscanf(strings.TrimSpace(words[1]), "%f %s received, %f %s sent", &v[0], &u[0], &v[1], &u[1])
+			if err != nil {
+				return c, fmt.Errorf("error parsing transfer: %v", err)
+			}
+			for i, unit := range u {
+				switch unit {
+				case "B":
+					// nop
+				case "KiB":
+					v[i] *= 1024
+				case "MiB":
+					v[i] *= 1024 * 1024
+				case "GiB":
+					v[i] *= 1024 * 1024 * 1024
+				case "TiB":
+					v[i] *= 1024 * 1024 * 1024 * 1024
+				}
+				switch i {
+				case 0:
+					c.Peers[p].Received = int64(v[i])
+				case 1:
+					c.Peers[p].Sent = int64(v[i])
+				}
+			}
+		case "persistent keepalive":
+			// TODO
+		case "latest handshake":
+			// TODO
+
+		// Unknown key
+		default:
+			return c, fmt.Errorf("unknown key: %v", line)
 		}
 	}
 	return c, nil
@@ -146,8 +235,44 @@ func (c Conf) Bytes() []byte {
 	return buf.Bytes()
 }
 
-func Show() {
-	// TODO
+// Show the current status of an interface
+// wg show iface
+func Show(iface string) (*Conf, error) {
+	return ShowCtx(context.Background(), iface)
+}
+
+// ShowCtx the current status of an interface
+// ctx for process management
+// wg show iface
+func ShowCtx(ctx context.Context, iface string) (*Conf, error) {
+	cmd := exec.CommandContext(ctx, wg, "show", iface)
+	cmd.Env = append(cmd.Env, "WG_HIDE_KEYS=never")
+	b, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("show: %v", err)
+	}
+	c, err := NewConfBytes(b)
+	if err != nil {
+		err = fmt.Errorf("decode showconf output error: %v", err)
+	}
+	return c, err
+}
+
+// ShowInterfaces lists all Wireguard interfaces
+// wg show interfaces
+func ShowInterfaces() ([]string, error) {
+	return ShowInterfacesCtx(context.Background())
+}
+
+// ShowInterfacesCtx lists all Wireguard interfaces
+// ctx for process management
+// wg show interfaces
+func ShowInterfacesCtx(ctx context.Context) ([]string, error) {
+	b, err := exec.CommandContext(ctx, wg, "show", "interfaces").Output()
+	if err != nil {
+		return nil, fmt.Errorf("show interfaces: %v", err)
+	}
+	return strings.Split(string(b), " "), nil
 }
 
 // ShowConf shows conf for an interface
@@ -171,8 +296,81 @@ func ShowConfCtx(ctx context.Context, iface string) (*Conf, error) {
 	return c, err
 }
 
-func Set() {
-	// TODO
+// SetOptPeer are options for peers for Set (wg set ... peer ...)
+// only PublicKey is mandatory
+type SetOptPeer struct {
+	PublicKey           string
+	Remove              bool
+	PskFpath            string
+	Endpoint            string
+	PersistentKeepalive *int // differentiate between unset and 0
+	AllowedIPs          []string
+}
+
+// Args serializes opts to cli args
+func (o SetOptPeer) Args() []string {
+	args := []string{"peer", o.PublicKey}
+	if o.Remove {
+		return append(args, "remove")
+	}
+	if o.PskFpath != "" {
+		args = append(args, "preshared-key", o.PskFpath)
+	}
+	if o.Endpoint != "" {
+		args = append(args, "endpoint", o.Endpoint)
+	}
+	if o.PersistentKeepalive != nil {
+		args = append(args, "persistent-keepalive", strconv.Itoa(*o.PersistentKeepalive))
+	}
+	if len(o.AllowedIPs) != 0 {
+		args = append(args, "allowed-ips", strings.Join(o.AllowedIPs, ","))
+	}
+	return args
+}
+
+// SetOpt are options for Set (wg set)
+// Only Interface is mandatory
+type SetOpt struct {
+	Interface    string
+	ListenPort   int
+	FwMark       string
+	PrivKeyFpath string
+	Peers        []SetOptPeer
+}
+
+// Args serializes opts to cli args
+func (o SetOpt) Args() []string {
+	args := []string{"set", o.Interface}
+	if o.ListenPort != 0 {
+		args = append(args, "listen-port", strconv.Itoa(o.ListenPort))
+	}
+	if o.FwMark != "" {
+		args = append(args, "fwmark", o.FwMark)
+	}
+	if o.PrivKeyFpath != "" {
+		args = append(args, "private-key", o.PrivKeyFpath)
+	}
+	for _, p := range o.Peers {
+		args = append(args, p.Args()...)
+	}
+	return args
+}
+
+// Set options on an interface
+// wg set ...
+func Set(opt SetOpt) error {
+	return SetCtx(context.Background(), opt)
+}
+
+// SetCtx options on an interface
+// ctx for process management
+// wg set ...
+func SetCtx(ctx context.Context, opt SetOpt) error {
+	err := exec.CommandContext(ctx, wg, opt.Args()...).Run()
+	if err != nil {
+		err = fmt.Errorf("set: %v", err)
+	}
+	return err
 }
 
 // SetConf set a conf struct
