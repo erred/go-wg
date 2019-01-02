@@ -4,16 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"os/exec"
-	"path"
 	"strconv"
 	"strings"
-	"time"
 )
 
-var wg = "wg"
+// Wg is the name/path of the wireguard cli binary
+var Wg = "wg"
 
 // Interface is a Wireguard interface
 type Interface struct {
@@ -50,7 +47,7 @@ type Peer struct {
 	PersistentKeepalive int
 
 	// Show only
-	LatestHandshake time.Duration
+	LatestHandshake int64
 	// Transfer
 	Received int64
 	Sent     int64
@@ -70,7 +67,7 @@ func (p Peer) Bytes() []byte {
 		buf.WriteString("AllowedIPs = " + strings.Join(p.AllowedIPs, ",") + "\n")
 	}
 	if p.Endpoint != "" {
-		buf.WriteString("Endpint = " + p.Endpoint + "\n")
+		buf.WriteString("Endpoint = " + p.Endpoint + "\n")
 	}
 	if p.PersistentKeepalive != 0 {
 		buf.WriteString("PersistentKeepalive = " + strconv.Itoa(p.PersistentKeepalive) + "\n")
@@ -86,9 +83,9 @@ type Conf struct {
 }
 
 // NewConfBytes decodes bytes into a conf
-func NewConfBytes(bb []byte) (*Conf, error) {
+func NewConfBytes(bb []byte) (Conf, error) {
 	var err error
-	var c = &Conf{}
+	var c = Conf{}
 	var p int
 
 	lines := strings.Split(string(bb), "\n")
@@ -98,6 +95,7 @@ func NewConfBytes(bb []byte) (*Conf, error) {
 			continue
 		}
 		words := strings.SplitN(line, " ", 3)
+		words[2] = strings.TrimSpace(words[2])
 		switch words[0] {
 
 		// Interface
@@ -113,8 +111,8 @@ func NewConfBytes(bb []byte) (*Conf, error) {
 
 		// Peer
 		case "[Peer]":
-			c.Peers = append(c.Peers)
-			p = len(c.Peers)
+			c.Peers = append(c.Peers, Peer{})
+			p = len(c.Peers) - 1
 		case "PublicKey":
 			c.Peers[p].PublicKey = words[2]
 		case "Endpoint":
@@ -137,16 +135,16 @@ func NewConfBytes(bb []byte) (*Conf, error) {
 
 		// Unknown key
 		default:
-			return c, fmt.Errorf("unkown key: %v", line)
+			return c, fmt.Errorf("unknown key: %v", line)
 		}
 	}
 	return c, nil
 }
 
-// NewStatusBytes decodes bytes into a conf
-func NewStatusBytes(bb []byte) (*Conf, error) {
+// NewConfStatus decodes bytes into a conf
+func NewConfStatus(bb []byte) (Conf, error) {
 	var err error
-	var c = &Conf{}
+	var c = Conf{}
 	var p int
 
 	lines := strings.Split(string(bb), "\n")
@@ -156,30 +154,31 @@ func NewStatusBytes(bb []byte) (*Conf, error) {
 			continue
 		}
 		words := strings.SplitN(line, ":", 2)
+		words[1] = strings.TrimSpace(words[1])
 		switch words[0] {
 
 		// Interface
 		case "interface":
 			// nop
 		case "public key":
-			c.Interface.PublicKey = strings.TrimSpace(words[1])
+			c.Interface.PublicKey = words[1]
 		case "private key":
-			c.Interface.PrivateKey = strings.TrimSpace(words[1])
+			c.Interface.PrivateKey = words[1]
 		case "listening port":
 			c.Interface.ListenPort, err = strconv.Atoi(words[1])
 			if err != nil {
 				return c, fmt.Errorf("error parsing ListenPort: %v", err)
 			}
 		case "fwmark":
-			c.Interface.FwMark = strings.TrimSpace(words[1])
+			c.Interface.FwMark = words[1]
 
 		// Peer
 		case "peer":
-			c.Peers = append(c.Peers)
-			p = len(c.Peers)
-			c.Peers[p].PublicKey = strings.TrimSpace(words[1])
+			c.Peers = append(c.Peers, Peer{})
+			p = len(c.Peers) - 1
+			c.Peers[p].PublicKey = words[1]
 		case "endpoint":
-			c.Peers[p].Endpoint = strings.TrimSpace(words[1])
+			c.Peers[p].Endpoint = words[1]
 		case "allowed ips":
 			for _, ip := range strings.Split(words[1], ",") {
 				c.Peers[p].AllowedIPs = append(c.Peers[p].AllowedIPs, strings.TrimSpace(ip))
@@ -187,9 +186,9 @@ func NewStatusBytes(bb []byte) (*Conf, error) {
 		case "preshared key":
 			c.Peers[p].PresharedKey = words[1]
 		case "transfer":
-			var v = make([]float32, 2)
+			var v = make([]float64, 2)
 			var u = make([]string, 2)
-			_, err := fmt.Sscanf(strings.TrimSpace(words[1]), "%f %s received, %f %s sent", &v[0], &u[0], &v[1], &u[1])
+			_, err := fmt.Sscanf(words[1], "%f %s received, %f %s sent", &v[0], &u[0], &v[1], &u[1])
 			if err != nil {
 				return c, fmt.Errorf("error parsing transfer: %v", err)
 			}
@@ -214,9 +213,48 @@ func NewStatusBytes(bb []byte) (*Conf, error) {
 				}
 			}
 		case "persistent keepalive":
-			// TODO
+			// always in seconds
+			_, err := fmt.Sscanf(words[1], "every %d", &c.Peers[p].PersistentKeepalive)
+			if err != nil {
+				return c, fmt.Errorf("error parsing persistent keepalive: %v", err)
+			}
 		case "latest handshake":
-			// TODO
+			// years days hours minutes seconds
+			parts := strings.Split(words[1], " ")
+			for i := 0; i < len(parts)-1; i += 2 {
+				switch {
+				case strings.Contains(parts[i+1], "year"):
+					n, err := strconv.ParseInt(parts[i], 10, 64)
+					if err != nil {
+						return c, fmt.Errorf("error parsing handshake year: %v", err)
+					}
+					c.Peers[p].LatestHandshake += n * 365 * 24 * 60 * 60
+				case strings.Contains(parts[i+1], "day"):
+					n, err := strconv.ParseInt(parts[i], 10, 64)
+					if err != nil {
+						return c, fmt.Errorf("error parsing handshake day: %v", err)
+					}
+					c.Peers[p].LatestHandshake += n * 24 * 60 * 60
+				case strings.Contains(parts[i+1], "hour"):
+					n, err := strconv.ParseInt(parts[i], 10, 64)
+					if err != nil {
+						return c, fmt.Errorf("error parsing handshake hour: %v", err)
+					}
+					c.Peers[p].LatestHandshake += n * 60 * 60
+				case strings.Contains(parts[i+1], "minute"):
+					n, err := strconv.ParseInt(parts[i], 10, 64)
+					if err != nil {
+						return c, fmt.Errorf("error parsing handshake minute: %v", err)
+					}
+					c.Peers[p].LatestHandshake += n * 60
+				case strings.Contains(parts[i+1], "second"):
+					n, err := strconv.ParseInt(parts[i], 10, 64)
+					if err != nil {
+						return c, fmt.Errorf("error parsing handshake second: %v", err)
+					}
+					c.Peers[p].LatestHandshake += n
+				}
+			}
 
 		// Unknown key
 		default:
@@ -237,21 +275,21 @@ func (c Conf) Bytes() []byte {
 
 // Show the current status of an interface
 // wg show iface
-func Show(iface string) (*Conf, error) {
+func Show(iface string) (Conf, error) {
 	return ShowCtx(context.Background(), iface)
 }
 
 // ShowCtx the current status of an interface
 // ctx for process management
 // wg show iface
-func ShowCtx(ctx context.Context, iface string) (*Conf, error) {
-	cmd := exec.CommandContext(ctx, wg, "show", iface)
+func ShowCtx(ctx context.Context, iface string) (Conf, error) {
+	cmd := exec.CommandContext(ctx, Wg, "show", iface)
 	cmd.Env = append(cmd.Env, "WG_HIDE_KEYS=never")
 	b, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("show: %v", err)
+		return Conf{}, fmt.Errorf("show: %v", err)
 	}
-	c, err := NewConfBytes(b)
+	c, err := NewConfStatus(b)
 	if err != nil {
 		err = fmt.Errorf("decode showconf output error: %v", err)
 	}
@@ -268,7 +306,7 @@ func ShowInterfaces() ([]string, error) {
 // ctx for process management
 // wg show interfaces
 func ShowInterfacesCtx(ctx context.Context) ([]string, error) {
-	b, err := exec.CommandContext(ctx, wg, "show", "interfaces").Output()
+	b, err := exec.CommandContext(ctx, Wg, "show", "interfaces").Output()
 	if err != nil {
 		return nil, fmt.Errorf("show interfaces: %v", err)
 	}
@@ -277,17 +315,17 @@ func ShowInterfacesCtx(ctx context.Context) ([]string, error) {
 
 // ShowConf shows conf for an interface
 // wg showconf iface
-func ShowConf(iface string) (*Conf, error) {
+func ShowConf(iface string) (Conf, error) {
 	return ShowConfCtx(context.Background(), iface)
 }
 
 // ShowConfCtx shows conf for an interface
 // ctx for process management
 // wg showconf iface
-func ShowConfCtx(ctx context.Context, iface string) (*Conf, error) {
-	b, err := exec.CommandContext(ctx, wg, "showconf", iface).Output()
+func ShowConfCtx(ctx context.Context, iface string) (Conf, error) {
+	b, err := exec.CommandContext(ctx, Wg, "showconf", iface).Output()
 	if err != nil {
-		return nil, fmt.Errorf("showconf: %v", err)
+		return Conf{}, fmt.Errorf("showconf: %v", err)
 	}
 	c, err := NewConfBytes(b)
 	if err != nil {
@@ -366,158 +404,97 @@ func Set(opt SetOpt) error {
 // ctx for process management
 // wg set ...
 func SetCtx(ctx context.Context, opt SetOpt) error {
-	err := exec.CommandContext(ctx, wg, opt.Args()...).Run()
+	err := exec.CommandContext(ctx, Wg, opt.Args()...).Run()
 	if err != nil {
 		err = fmt.Errorf("set: %v", err)
 	}
 	return err
 }
 
-// SetConf set a conf struct
-// **write conf to fpath**
-// wg addconf iface fpath
-// rm fpath
-func SetConf(iface string, conf Conf) error {
-	return SetConfCtx(context.Background(), iface, conf)
-}
-
-// SetConfCtx set a conf struct
-// ctx for process management
-// **write conf to fpath**
-// wg addconf iface fpath
-// rm fpath
-func SetConfCtx(ctx context.Context, iface string, conf Conf) error {
-	fname, err := tmpConf(conf)
-	if err != nil {
-		return fmt.Errorf("write temp conf: %v", err)
-	}
-	defer os.RemoveAll(path.Dir(fname))
-
-	return SetConfFileCtx(ctx, iface, fname)
-}
-
-// SetConfFile set a conf file
+// SetConf set a conf file
 // ctx for process management
 // wg setconf iface fpath
-func SetConfFile(iface, fpath string) error {
-	return SetConfFileCtx(context.Background(), iface, fpath)
+func SetConf(iface, fpath string) error {
+	return SetConfCtx(context.Background(), iface, fpath)
 }
 
-// SetConfFileCtx set a conf file
+// SetConfCtx set a conf file
 // ctx for process management
 // wg setconf iface fpath
-func SetConfFileCtx(ctx context.Context, iface, fpath string) error {
-	err := exec.CommandContext(ctx, wg, "setconf", iface, fpath).Run()
+func SetConfCtx(ctx context.Context, iface, fpath string) error {
+	err := exec.CommandContext(ctx, Wg, "setconf", iface, fpath).Run()
 	if err != nil {
 		err = fmt.Errorf("setconffile: %v", err)
 	}
 	return err
 }
 
-// AddConf add a conf struct
-// **write conf to fpath**
+// AddConf add a conf file
 // wg addconf iface fpath
-// rm fpath
-func AddConf(iface string, conf Conf) error {
-	return AddConfCtx(context.Background(), iface, conf)
+func AddConf(iface, fpath string) error {
+	return AddConfCtx(context.Background(), iface, fpath)
 }
 
-// AddConfCtx add a conf struct
-// ctx for process management
-// **write conf to fpath**
-// wg addconf iface fpath
-// rm fpath
-func AddConfCtx(ctx context.Context, iface string, conf Conf) error {
-	fname, err := tmpConf(conf)
-	if err != nil {
-		return fmt.Errorf("write temp conf: %v", err)
-	}
-	defer os.RemoveAll(path.Dir(fname))
-
-	return AddConfFileCtx(ctx, iface, fname)
-}
-
-// AddConfFile add a conf file
-// wg addconf iface fpath
-func AddConfFile(iface, fpath string) error {
-	return AddConfFileCtx(context.Background(), iface, fpath)
-}
-
-// AddConfFileCtx add a conf file
+// AddConfCtx add a conf file
 // ctx for process management
 // wg addconf iface fpath
-func AddConfFileCtx(ctx context.Context, iface, fpath string) error {
-	err := exec.CommandContext(ctx, wg, "addconf", iface, fpath).Run()
+func AddConfCtx(ctx context.Context, iface, fpath string) error {
+	err := exec.CommandContext(ctx, Wg, "addconf", iface, fpath).Run()
 	if err != nil {
-		err = fmt.Errorf("addconffile: ", err)
+		err = fmt.Errorf("addconffile: %v", err)
 	}
 	return err
 }
 
 // GenKey generates a private key
 // wg genkey
-func GenKey() ([]byte, error) {
+func GenKey() (string, error) {
 	return GenKeyCtx(context.Background())
 }
 
 // GenKeyCtx generates a private key
 // ctx for process management
 // wg genkey
-func GenKeyCtx(ctx context.Context) ([]byte, error) {
-	b, err := exec.CommandContext(ctx, wg, "genkey").Output()
+func GenKeyCtx(ctx context.Context) (string, error) {
+	b, err := exec.CommandContext(ctx, Wg, "genkey").Output()
 	if err != nil {
-		err = fmt.Errorf("genkey: %v", err)
+		return "", fmt.Errorf("genkey: %v", err)
 	}
-	return b, err
+	return string(b), err
 }
 
 // GenPsk generates a preshared key
 // wg genpsk
-func GenPsk() ([]byte, error) {
+func GenPsk() (string, error) {
 	return GenPskCtx(context.Background())
 }
 
 // GenPskCtx generates a preshared key
 // ctx for process management
 // wg genpsk
-func GenPskCtx(ctx context.Context) ([]byte, error) {
-	b, err := exec.CommandContext(ctx, wg, "genpsk").Output()
+func GenPskCtx(ctx context.Context) (string, error) {
+	b, err := exec.CommandContext(ctx, Wg, "genpsk").Output()
 	if err != nil {
-		err = fmt.Errorf("genpsk: %v", err)
+		return "", fmt.Errorf("genpsk: %v", err)
 	}
-	return b, err
+	return string(b), nil
 }
 
 // PubKey generaetes a public key from a private key
 // echo $privkey | wg pubkey
-func PubKey(privKey []byte) ([]byte, error) {
+func PubKey(privKey string) (string, error) {
 	return PubKeyCtx(context.Background(), privKey)
 }
 
 // PubKeyCtx generaetes a public key from a private key
 // ctx for process management
 // echo $privkey | wg pubkey
-func PubKeyCtx(ctx context.Context, privKey []byte) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, wg, "pubkey")
-	cmd.Stdin = bytes.NewBuffer(privKey)
+func PubKeyCtx(ctx context.Context, privKey string) (string, error) {
+	cmd := exec.CommandContext(ctx, Wg, "pubkey")
+	cmd.Stdin = bytes.NewBufferString(privKey)
 	b, err := cmd.Output()
 	if err != nil {
-		err = fmt.Errorf("pubkey: %v", err)
+		return "", fmt.Errorf("pubkey: %v", err)
 	}
-	return b, err
-}
-
-// tmpConf writes a conf to a temp file
-// returns filename, error
-func tmpConf(conf Conf) (string, error) {
-	d, err := ioutil.TempDir("", "")
-	if err != nil {
-		return "", fmt.Errorf("create temp dir error: %v", err)
-	}
-	fname := path.Join(d, "wg.conf")
-	err = ioutil.WriteFile(fname, conf.Bytes(), 0600)
-	if err != nil {
-		return "", fmt.Errorf("write temp file error: %v", err)
-	}
-	return fname, nil
+	return string(b), nil
 }
