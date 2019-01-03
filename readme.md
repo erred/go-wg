@@ -5,6 +5,6 @@
 
 [![Build Status](https://img.shields.io/travis-ci/seankhliao/go-wg.svg?style=flat-square)](https://travis-ci.org/seankhliao/go-wg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/seankhliao/go-wg?style=flat-square)](https://goreportcard.com/report/github.com/seankhliao/go-wg)
-[![codecov](https://img.shields.io/codecov/c/github/codecov/seankhliao/go-wg,svg?style=flat-square)](https://codecov.io/gh/seankhliao/go-wg)
+[![codecov](https://img.shields.io/codecov/c/github/seankhliao/go-wg,svg?style=flat-square)](https://codecov.io/gh/seankhliao/go-wg)
 
 Go lib for interfacing with `wg` cli through `exec.Command`
