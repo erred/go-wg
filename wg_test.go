@@ -358,7 +358,7 @@ EOF
 			t.Errorf(sf, "Show setup", i, err)
 			continue
 		}
-		Wg = tf
+		Wg = tf + "test_show.sh"
 
 		conf, err := Show("wgTest")
 		if err != nil {
@@ -392,7 +392,7 @@ EOF
 			t.Errorf(sf, "ShowInterfaces setup", i, err)
 			continue
 		}
-		Wg = tf
+		Wg = tf + "test_show_interfaces.sh"
 
 		ifaces, err := ShowInterfaces()
 		if err != nil {
@@ -447,7 +447,7 @@ EOF
 			t.Errorf(sf, "ShowConf setup", i, err)
 			continue
 		}
-		Wg = tf
+		Wg = tf + "test_show_conf.sh"
 
 		conf, err := ShowConf("iface")
 		if err != nil {
@@ -590,7 +590,7 @@ done
 			t.Errorf(sf, "Set setup", i, err)
 			continue
 		}
-		Wg = tf
+		Wg = tf + "test_set.sh"
 
 		err = Set(c.O)
 		if err != nil {
@@ -626,7 +626,7 @@ done
 			t.Errorf(sf, "SetConf setup", i, err)
 			continue
 		}
-		Wg = tf
+		Wg = tf + "test_set_conf.sh"
 
 		err = SetConf("iface", c.F)
 		if err != nil {
@@ -663,7 +663,7 @@ done
 			t.Errorf(sf, "AddConf setup", i, err)
 			continue
 		}
-		Wg = tf
+		Wg = tf + "test_add_conf.sh"
 
 		err = AddConf("iface", c.F)
 		if err != nil {
@@ -692,7 +692,7 @@ echo -n generated_private_key
 			t.Errorf(sf, "GenKey setup", i, err)
 			continue
 		}
-		Wg = tf
+		Wg = tf + "test_gen_key.sh"
 
 		key, err := GenKey()
 		if err != nil {
@@ -723,7 +723,7 @@ echo -n generated_preshared_key
 			t.Errorf(sf, "GenPsk setup", i, err)
 			continue
 		}
-		Wg = tf
+		Wg = tf + "test_gen_psk.sh"
 
 		key, err := GenPsk()
 		if err != nil {
@@ -761,7 +761,7 @@ exit 1
 			t.Errorf(sf, "PubKey setup", i, err)
 			continue
 		}
-		Wg = tf
+		Wg = tf + "test_pub_key.sh"
 
 		pubkey, err := PubKey(c.PrivKey)
 		if err != nil {
