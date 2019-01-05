@@ -9,7 +9,7 @@ import (
 var (
 	tf = "./go_wg_test.sh"
 	se = "%v #%v errored: %v"
-	sf = "%v #%v \nexp: %v \ngot: %v"
+	sf = "%v #%v \nexp: >%v< \ngot: >%v<"
 )
 
 // Interface -> bytes
@@ -297,6 +297,7 @@ peer: another_public_key
 
 }
 
+// bytes -> Conf
 func TestShow(t *testing.T) {
 	cases := []struct {
 		B []byte
@@ -370,23 +371,16 @@ EOF
 	}
 }
 
+// bytes -> []string
 func TestShowInterfaces(t *testing.T) {
 	cases := []struct {
 		I []string
 		B []byte
 	}{
 		{
-			[]string{},
-			[]byte(`#!/bin/env sh
-cat << EOF
-
-EOF
-`),
-		},
-		{
 			[]string{"wg0", "wg1", "wgWhat"},
 			[]byte(`#!/bin/env sh
-cat << EOR
+cat << EOF
 wg0 wg1 wgWhat
 EOF
 `),
@@ -411,17 +405,38 @@ EOF
 	}
 }
 
-// TODO add test cases
+// bytes -> Conf
 func TestShowConf(t *testing.T) {
 	cases := []struct {
 		C Conf
 		B []byte
 	}{
 		{
-			Conf{},
+			Conf{
+				Interface{
+					ListenPort: 52274,
+					FwMark:     "0xca6c",
+					PrivateKey: "this_is_a_private_key",
+				},
+				[]Peer{
+					{
+						PublicKey:  "this_is_a_public_key",
+						AllowedIPs: []string{"0.0.0.0/0"},
+						Endpoint:   "ip_address:port",
+					},
+				},
+			},
 			[]byte(`#!/bin/env sh
-cat << EOR
+cat << EOF
+[Interface]
+ListenPort = 52274
+FwMark = 0xca6c
+PrivateKey = this_is_a_private_key
 
+[Peer]
+PublicKey = this_is_a_public_key
+AllowedIPs = 0.0.0.0/0
+Endpoint = ip_address:port
 EOF
 `),
 		},
@@ -445,15 +460,32 @@ EOF
 	}
 }
 
-// TODO add test cases
+// OptPeer -> []string
 func TestOptPeerArgs(t *testing.T) {
+	pka := 10
 	cases := []struct {
 		O OptPeer
 		A []string
 	}{
 		{
-			OptPeer{},
-			[]string{},
+			OptPeer{
+				PublicKey: "this_is_a_public_key",
+			},
+			[]string{"peer", "this_is_a_public_key"},
+		}, {
+			OptPeer{
+				PublicKey: "pubkey_a",
+				Remove:    true,
+			},
+			[]string{"peer", "pubkey_a", "remove"},
+		}, {
+			OptPeer{
+				PublicKey:           "pubkey_b",
+				Endpoint:            "1.2.3.4:5678",
+				PersistentKeepalive: &pka,
+				AllowedIPs:          []string{"1.1.2.2/16", "10.0.0.0/8"},
+			},
+			[]string{"peer", "pubkey_b", "endpoint", "1.2.3.4:5678", "persistent-keepalive", "10", "allowed-ips", "1.1.2.2/16,10.0.0.0/8"},
 		},
 	}
 	for i, c := range cases {
@@ -464,15 +496,35 @@ func TestOptPeerArgs(t *testing.T) {
 	}
 }
 
-// TODO add test cases
+// opt -> []string
 func TestOptArgs(t *testing.T) {
 	cases := []struct {
 		O Opt
 		A []string
 	}{
 		{
-			Opt{},
-			[]string{},
+			Opt{
+				Interface: "wg0",
+			},
+			[]string{"set", "wg0"},
+		}, {
+			Opt{
+				Interface:    "wg1",
+				ListenPort:   5678,
+				FwMark:       "0xca6c",
+				PrivKeyFpath: "/etc/super/secret",
+				Peers: []OptPeer{
+					{
+						PublicKey: "pubkey_a",
+						Remove:    true,
+					},
+					{
+						PublicKey: "pubkey_b",
+						Endpoint:  "8.9.10.11:4321",
+					},
+				},
+			},
+			[]string{"set", "wg1", "listen-port", "5678", "fwmark", "0xca6c", "private-key", "/etc/super/secret", "peer", "pubkey_a", "remove", "peer", "pubkey_b", "endpoint", "8.9.10.11:4321"},
 		},
 	}
 	for i, c := range cases {
@@ -483,7 +535,6 @@ func TestOptArgs(t *testing.T) {
 	}
 }
 
-// TODO add test cases
 // not much more than Opt.Args()
 func TestSet(t *testing.T) {
 	cases := []struct {
@@ -491,11 +542,45 @@ func TestSet(t *testing.T) {
 		B []byte
 	}{
 		{
-			Opt{},
+			Opt{
+				Interface: "wg0",
+			},
 			[]byte(`#!/bin/env sh
-cat << EOR
-
-EOF
+ans=( "set" "wg0" )
+i=0
+for arg in $@; do
+    if [ "$arg" != ${ans[$i]}  ]; then
+        exit 1
+    fi
+    i=$i+1
+done
+`),
+		}, {
+			Opt{
+				Interface:    "wg1",
+				ListenPort:   5678,
+				FwMark:       "0xca6c",
+				PrivKeyFpath: "/etc/super/secret",
+				Peers: []OptPeer{
+					{
+						PublicKey: "pubkey_a",
+						Remove:    true,
+					},
+					{
+						PublicKey: "pubkey_b",
+						Endpoint:  "8.9.10.11:4321",
+					},
+				},
+			},
+			[]byte(`#!/bin/env sh
+ans=( "set", "wg1", "listen-port", "5678", "fwmark", "0xca6c", "private-key", "/etc/super/secret", "peer", "pubkey_a", "remove", "peer", "pubkey_b", "endpoint", "8.9.10.11:4321" )
+i=0
+for arg in $@; do
+    if [ "$arg" != ${ans[$i]}  ]; then
+        exit $i
+    fi
+    i=$i+1
+done
 `),
 		},
 	}
@@ -515,18 +600,23 @@ EOF
 	}
 }
 
-// TODO add test cases
 func TestSetConf(t *testing.T) {
 	cases := []struct {
 		F string
 		B []byte
 	}{
 		{
-			"/etc/wireguard/wg0.conf",
+			"/etc/wireguard/iface.conf",
 			[]byte(`#!/bin/env sh
-cat << EOR
+ans=( "setconf" "iface" "/etc/wireguard/iface.conf" )
+i=0
+for arg in $@; do
+    if [ "$arg" != ${ans[$i]}  ]; then
+        exit 1
+    fi
+    i=$i+1
+done
 
-EOF
 `),
 		},
 	}
@@ -553,11 +643,17 @@ func TestAddConf(t *testing.T) {
 		B []byte
 	}{
 		{
-			"/etc/wireguard/wg0.conf",
+			"/etc/wireguard/iface.conf",
 			[]byte(`#!/bin/env sh
-cat << EOR
+ans=( "addconf" "iface" "/etc/wireguard/iface.conf" )
+i=0
+for arg in $@; do
+    if [ "$arg" != ${ans[$i]}  ]; then
+        exit 1
+    fi
+    i=$i+1
+done
 
-EOF
 `),
 		},
 	}
@@ -586,9 +682,7 @@ func TestGenKey(t *testing.T) {
 		{
 			"generated_private_key",
 			[]byte(`#!/bin/env sh
-cat << EOR
-
-EOF
+echo -n generated_private_key
 `),
 		},
 	}
@@ -611,18 +705,15 @@ EOF
 	}
 }
 
-// TODO add test cases
 func TestGenPsk(t *testing.T) {
 	cases := []struct {
 		K string
 		B []byte
 	}{
 		{
-			"generated_private_key",
+			"generated_preshared_key",
 			[]byte(`#!/bin/env sh
-cat << EOR
-
-EOF
+echo -n generated_preshared_key
 `),
 		},
 	}
@@ -655,9 +746,12 @@ func TestPubKey(t *testing.T) {
 			"expected_public_key",
 			"inputted_private_key",
 			[]byte(`#!/bin/env sh
-cat << EOR
-
-EOF
+read key
+if [ "$key" = "inputted_private_key" ]; then
+	echo -n expected_public_key
+	exit 0
+fi
+exit 1
 `),
 		},
 	}

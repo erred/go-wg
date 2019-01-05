@@ -313,7 +313,7 @@ func ShowInterfacesCtx(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("show interfaces: %v", err)
 	}
-	return strings.Split(string(b), " "), nil
+	return strings.Split(strings.TrimSpace(string(b)), " "), nil
 }
 
 // ShowConf shows conf for an interface
