@@ -5,12 +5,9 @@ go:
 script:
   - go test -race -coverprofile=coverage.txt -covermode=atomic
 
-before_cache:
-  - pwd
-  - ls /tmp
-
 after_success:
   - bash <(curl -s https://codecov.io/bash)
 
 after_failure:
-  - bash <(curl -s https://codecov.io/bash)
+  - pwd
+  - ls /tmp
