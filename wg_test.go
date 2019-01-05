@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	tf = "/tmp/go_wg_test.sh"
+	tf = "/tmp/"
 	se = "%v #%v errored: %v"
 	sf = "%v #%v \nexp: >%v< \ngot: >%v<"
 )
@@ -353,7 +353,7 @@ EOF
 		},
 	}
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf, c.B, 0755)
+		err := ioutil.WriteFile(tf+"test_show.sh", c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "Show setup", i, err)
 			continue
@@ -387,7 +387,7 @@ EOF
 		},
 	}
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf, c.B, 0755)
+		err := ioutil.WriteFile(tf+"test_show_interfaces.sh", c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "ShowInterfaces setup", i, err)
 			continue
@@ -442,7 +442,7 @@ EOF
 		},
 	}
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf, c.B, 0755)
+		err := ioutil.WriteFile(tf+"test_show_conf.sh", c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "ShowConf setup", i, err)
 			continue
@@ -585,7 +585,7 @@ done
 		},
 	}
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf, c.B, 0755)
+		err := ioutil.WriteFile(tf+"test_set.sh", c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "Set setup", i, err)
 			continue
@@ -621,7 +621,7 @@ done
 		},
 	}
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf, c.B, 0755)
+		err := ioutil.WriteFile(tf+"test_set_conf.sh", c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "SetConf setup", i, err)
 			continue
@@ -658,7 +658,7 @@ done
 		},
 	}
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf, c.B, 0755)
+		err := ioutil.WriteFile(tf+"test_add_conf.sh", c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "AddConf setup", i, err)
 			continue
@@ -687,7 +687,7 @@ echo -n generated_private_key
 		},
 	}
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf, c.B, 0755)
+		err := ioutil.WriteFile(tf+"test_gen_key.sh", c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "GenKey setup", i, err)
 			continue
@@ -718,7 +718,7 @@ echo -n generated_preshared_key
 		},
 	}
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf, c.B, 0755)
+		err := ioutil.WriteFile(tf+"test_gen_psk.sh", c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "GenPsk setup", i, err)
 			continue
@@ -756,7 +756,7 @@ exit 1
 		},
 	}
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf, c.B, 0755)
+		err := ioutil.WriteFile(tf+"test_pub_key.sh", c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "PubKey setup", i, err)
 			continue
