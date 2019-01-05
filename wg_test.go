@@ -2,6 +2,7 @@ package wg
 
 import (
 	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -360,7 +361,7 @@ EOF
 			t.Errorf(sf, "Show setup", i, err)
 			continue
 		}
-		// defer os.Remove(ltf)
+		defer os.Remove(ltf)
 
 		conf, err := Show("wgTest")
 		if err != nil {
@@ -381,7 +382,7 @@ func TestShowInterfaces(t *testing.T) {
 	}{
 		{
 			[]string{"wg0", "wg1", "wgWhat"},
-			[]byte(`#!/bin/env sh
+			[]byte(`#!/usr/bin/env sh
 cat << EOF
 wg0 wg1 wgWhat
 EOF
@@ -396,7 +397,7 @@ EOF
 			t.Errorf(sf, "ShowInterfaces setup", i, err)
 			continue
 		}
-		// defer os.Remove(ltf)
+		defer os.Remove(ltf)
 
 		ifaces, err := ShowInterfaces()
 		if err != nil {
@@ -430,7 +431,7 @@ func TestShowConf(t *testing.T) {
 					},
 				},
 			},
-			[]byte(`#!/bin/env sh
+			[]byte(`#!/usr/bin/env sh
 cat << EOF
 [Interface]
 ListenPort = 52274
@@ -453,7 +454,7 @@ EOF
 			t.Errorf(sf, "ShowConf setup", i, err)
 			continue
 		}
-		// defer os.Remove(ltf)
+		defer os.Remove(ltf)
 
 		conf, err := ShowConf("iface")
 		if err != nil {
@@ -551,7 +552,7 @@ func TestSet(t *testing.T) {
 			Opt{
 				Interface: "wg0",
 			},
-			[]byte(`#!/bin/env sh
+			[]byte(`#!/usr/bin/env sh
 ans=( "set" "wg0" )
 i=0
 for arg in $@; do
@@ -578,7 +579,7 @@ done
 					},
 				},
 			},
-			[]byte(`#!/bin/env sh
+			[]byte(`#!/usr/bin/env sh
 ans=( "set", "wg1", "listen-port", "5678", "fwmark", "0xca6c", "private-key", "/etc/super/secret", "peer", "pubkey_a", "remove", "peer", "pubkey_b", "endpoint", "8.9.10.11:4321" )
 i=0
 for arg in $@; do
@@ -598,7 +599,7 @@ done
 			t.Errorf(sf, "Set setup", i, err)
 			continue
 		}
-		// defer os.Remove(ltf)
+		defer os.Remove(ltf)
 
 		err = Set(c.O)
 		if err != nil {
@@ -615,7 +616,7 @@ func TestSetConf(t *testing.T) {
 	}{
 		{
 			"/etc/wireguard/iface.conf",
-			[]byte(`#!/bin/env sh
+			[]byte(`#!/usr/bin/env sh
 ans=( "setconf" "iface" "/etc/wireguard/iface.conf" )
 i=0
 for arg in $@; do
@@ -636,7 +637,7 @@ done
 			t.Errorf(sf, "SetConf setup", i, err)
 			continue
 		}
-		// defer os.Remove(ltf)
+		defer os.Remove(ltf)
 
 		err = SetConf("iface", c.F)
 		if err != nil {
@@ -653,7 +654,7 @@ func TestAddConf(t *testing.T) {
 	}{
 		{
 			"/etc/wireguard/iface.conf",
-			[]byte(`#!/bin/env sh
+			[]byte(`#!/usr/bin/env sh
 ans=( "addconf" "iface" "/etc/wireguard/iface.conf" )
 i=0
 for arg in $@; do
@@ -674,7 +675,7 @@ done
 			t.Errorf(sf, "AddConf setup", i, err)
 			continue
 		}
-		// defer os.Remove(ltf)
+		defer os.Remove(ltf)
 
 		err = AddConf("iface", c.F)
 		if err != nil {
@@ -691,7 +692,7 @@ func TestGenKey(t *testing.T) {
 	}{
 		{
 			"generated_private_key",
-			[]byte(`#!/bin/env sh
+			[]byte(`#!/usr/bin/env sh
 echo -n generated_private_key
 `),
 		},
@@ -704,7 +705,7 @@ echo -n generated_private_key
 			t.Errorf(sf, "GenKey setup", i, err)
 			continue
 		}
-		// defer os.Remove(ltf)
+		defer os.Remove(ltf)
 
 		key, err := GenKey()
 		if err != nil {
@@ -724,7 +725,7 @@ func TestGenPsk(t *testing.T) {
 	}{
 		{
 			"generated_preshared_key",
-			[]byte(`#!/bin/env sh
+			[]byte(`#!/usr/bin/env sh
 echo -n generated_preshared_key
 `),
 		},
@@ -737,7 +738,7 @@ echo -n generated_preshared_key
 			t.Errorf(sf, "GenPsk setup", i, err)
 			continue
 		}
-		// defer os.Remove(ltf)
+		defer os.Remove(ltf)
 
 		key, err := GenPsk()
 		if err != nil {
@@ -759,7 +760,7 @@ func TestPubKey(t *testing.T) {
 		{
 			"expected_public_key",
 			"inputted_private_key",
-			[]byte(`#!/bin/env sh
+			[]byte(`#!/usr/bin/env sh
 read key
 if [ "$key" = "inputted_private_key" ]; then
 	echo -n expected_public_key
@@ -777,7 +778,7 @@ exit 1
 			t.Errorf(sf, "PubKey setup", i, err)
 			continue
 		}
-		// defer os.Remove(ltf)
+		defer os.Remove(ltf)
 
 		pubkey, err := PubKey(c.PrivKey)
 		if err != nil {
