@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	tf = "./go_wg_test.sh"
+	tf = "/tmp/go_wg_test.sh"
 	se = "%v #%v errored: %v"
 	sf = "%v #%v \nexp: >%v< \ngot: >%v<"
 )
