@@ -2,6 +2,7 @@ package wg
 
 import (
 	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -352,13 +353,15 @@ EOF
 			},
 		},
 	}
+	ltf := tf + "test_show.sh"
+	Wg = ltf
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf+"test_show.sh", c.B, 0755)
+		err := ioutil.WriteFile(ltf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "Show setup", i, err)
 			continue
 		}
-		Wg = tf + "test_show.sh"
+		defer os.Remove(ltf)
 
 		conf, err := Show("wgTest")
 		if err != nil {
@@ -386,13 +389,15 @@ EOF
 `),
 		},
 	}
+	ltf := tf + "test_show_interfaces.sh"
+	Wg = ltf
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf+"test_show_interfaces.sh", c.B, 0755)
+		err := ioutil.WriteFile(ltf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "ShowInterfaces setup", i, err)
 			continue
 		}
-		Wg = tf + "test_show_interfaces.sh"
+		defer os.Remove(ltf)
 
 		ifaces, err := ShowInterfaces()
 		if err != nil {
@@ -441,13 +446,15 @@ EOF
 `),
 		},
 	}
+	ltf := tf + "test_show_conf.sh"
+	Wg = ltf
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf+"test_show_conf.sh", c.B, 0755)
+		err := ioutil.WriteFile(ltf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "ShowConf setup", i, err)
 			continue
 		}
-		Wg = tf + "test_show_conf.sh"
+		defer os.Remove(ltf)
 
 		conf, err := ShowConf("iface")
 		if err != nil {
@@ -584,13 +591,15 @@ done
 `),
 		},
 	}
+	ltf := tf + "test_set.sh"
+	Wg = ltf
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf+"test_set.sh", c.B, 0755)
+		err := ioutil.WriteFile(ltf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "Set setup", i, err)
 			continue
 		}
-		Wg = tf + "test_set.sh"
+		defer os.Remove(ltf)
 
 		err = Set(c.O)
 		if err != nil {
@@ -620,13 +629,15 @@ done
 `),
 		},
 	}
+	ltf := tf + "test_set_conf.sh"
+	Wg = ltf
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf+"test_set_conf.sh", c.B, 0755)
+		err := ioutil.WriteFile(ltf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "SetConf setup", i, err)
 			continue
 		}
-		Wg = tf + "test_set_conf.sh"
+		defer os.Remove(ltf)
 
 		err = SetConf("iface", c.F)
 		if err != nil {
@@ -636,7 +647,6 @@ done
 	}
 }
 
-// TODO add test cases
 func TestAddConf(t *testing.T) {
 	cases := []struct {
 		F string
@@ -657,13 +667,15 @@ done
 `),
 		},
 	}
+	ltf := tf + "test_add_conf.sh"
+	Wg = ltf
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf+"test_add_conf.sh", c.B, 0755)
+		err := ioutil.WriteFile(ltf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "AddConf setup", i, err)
 			continue
 		}
-		Wg = tf + "test_add_conf.sh"
+		defer os.Remove(ltf)
 
 		err = AddConf("iface", c.F)
 		if err != nil {
@@ -673,7 +685,6 @@ done
 	}
 }
 
-// TODO add test cases
 func TestGenKey(t *testing.T) {
 	cases := []struct {
 		K string
@@ -686,13 +697,15 @@ echo -n generated_private_key
 `),
 		},
 	}
+	ltf := tf + "test_gen_key.sh"
+	Wg = ltf
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf+"test_gen_key.sh", c.B, 0755)
+		err := ioutil.WriteFile(ltf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "GenKey setup", i, err)
 			continue
 		}
-		Wg = tf + "test_gen_key.sh"
+		defer os.Remove(ltf)
 
 		key, err := GenKey()
 		if err != nil {
@@ -717,13 +730,15 @@ echo -n generated_preshared_key
 `),
 		},
 	}
+	ltf := tf + "test_gen_psk.sh"
+	Wg = ltf
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf+"test_gen_psk.sh", c.B, 0755)
+		err := ioutil.WriteFile(ltf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "GenPsk setup", i, err)
 			continue
 		}
-		Wg = tf + "test_gen_psk.sh"
+		defer os.Remove(ltf)
 
 		key, err := GenPsk()
 		if err != nil {
@@ -755,13 +770,15 @@ exit 1
 `),
 		},
 	}
+	ltf := tf + "test_pub_key.sh"
+	Wg = ltf
 	for i, c := range cases {
-		err := ioutil.WriteFile(tf+"test_pub_key.sh", c.B, 0755)
+		err := ioutil.WriteFile(ltf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "PubKey setup", i, err)
 			continue
 		}
-		Wg = tf + "test_pub_key.sh"
+		defer os.Remove(ltf)
 
 		pubkey, err := PubKey(c.PrivKey)
 		if err != nil {
