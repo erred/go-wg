@@ -8,3 +8,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/seankhliao/go-wg?style=flat-square)](https://goreportcard.com/report/github.com/seankhliao/go-wg)
 
 Go lib for interfacing with `wg` cli through `exec.Command`
+
+## Todo
+
+Write tests
