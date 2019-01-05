@@ -305,7 +305,7 @@ func TestShow(t *testing.T) {
 		C Conf
 	}{
 		{
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 cat << EOF
 interface: $1
   public key: this_is_a_public_key
@@ -382,7 +382,7 @@ func TestShowInterfaces(t *testing.T) {
 	}{
 		{
 			[]string{"wg0", "wg1", "wgWhat"},
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 cat << EOF
 wg0 wg1 wgWhat
 EOF
@@ -431,7 +431,7 @@ func TestShowConf(t *testing.T) {
 					},
 				},
 			},
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 cat << EOF
 [Interface]
 ListenPort = 52274
@@ -552,7 +552,7 @@ func TestSet(t *testing.T) {
 			Opt{
 				Interface: "wg0",
 			},
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 ans=( "set" "wg0" )
 i=0
 for arg in $@; do
@@ -579,7 +579,7 @@ done
 					},
 				},
 			},
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 ans=( "set", "wg1", "listen-port", "5678", "fwmark", "0xca6c", "private-key", "/etc/super/secret", "peer", "pubkey_a", "remove", "peer", "pubkey_b", "endpoint", "8.9.10.11:4321" )
 i=0
 for arg in $@; do
@@ -616,7 +616,7 @@ func TestSetConf(t *testing.T) {
 	}{
 		{
 			"/etc/wireguard/iface.conf",
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 ans=( "setconf" "iface" "/etc/wireguard/iface.conf" )
 i=0
 for arg in $@; do
@@ -654,7 +654,7 @@ func TestAddConf(t *testing.T) {
 	}{
 		{
 			"/etc/wireguard/iface.conf",
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 ans=( "addconf" "iface" "/etc/wireguard/iface.conf" )
 i=0
 for arg in $@; do
@@ -692,7 +692,7 @@ func TestGenKey(t *testing.T) {
 	}{
 		{
 			"generated_private_key",
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 echo -n generated_private_key
 `),
 		},
@@ -725,7 +725,7 @@ func TestGenPsk(t *testing.T) {
 	}{
 		{
 			"generated_preshared_key",
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 echo -n generated_preshared_key
 `),
 		},
@@ -760,7 +760,7 @@ func TestPubKey(t *testing.T) {
 		{
 			"expected_public_key",
 			"inputted_private_key",
-			[]byte(`#!/usr/bin/env sh
+			[]byte(`#!/usr/bin/env bash
 read key
 if [ "$key" = "inputted_private_key" ]; then
 	echo -n expected_public_key
