@@ -64,7 +64,7 @@ func (p Peer) Bytes() []byte {
 		buf.WriteString("PresharedKey = " + p.PresharedKey + "\n")
 	}
 	if len(p.AllowedIPs) != 0 {
-		buf.WriteString("AllowedIPs = " + strings.Join(p.AllowedIPs, ",") + "\n")
+		buf.WriteString("AllowedIPs = " + strings.Join(p.AllowedIPs, ", ") + "\n")
 	}
 	if p.Endpoint != "" {
 		buf.WriteString("Endpoint = " + p.Endpoint + "\n")
@@ -94,40 +94,43 @@ func NewConfBytes(bb []byte) (Conf, error) {
 		if line == "" {
 			continue
 		}
-		words := strings.SplitN(line, " ", 3)
-		words[2] = strings.TrimSpace(words[2])
-		switch words[0] {
+		words := strings.SplitN(line, "=", 2)
+		if len(words) == 2 {
+			words[1] = strings.TrimSpace(words[1])
+		}
+		switch strings.TrimSpace(words[0]) {
 
 		// Interface
+		case "[Interface]":
 		case "ListenPort":
-			c.Interface.ListenPort, err = strconv.Atoi(words[2])
+			c.Interface.ListenPort, err = strconv.Atoi(words[1])
 			if err != nil {
 				return c, fmt.Errorf("error parsing ListenPort: %v", err)
 			}
 		case "FwMark":
-			c.Interface.FwMark = words[2]
+			c.Interface.FwMark = words[1]
 		case "PrivateKey":
-			c.Interface.PrivateKey = words[2]
+			c.Interface.PrivateKey = words[1]
 
 		// Peer
 		case "[Peer]":
 			c.Peers = append(c.Peers, Peer{})
 			p = len(c.Peers) - 1
 		case "PublicKey":
-			c.Peers[p].PublicKey = words[2]
+			c.Peers[p].PublicKey = words[1]
 		case "Endpoint":
-			c.Peers[p].Endpoint = words[2]
+			c.Peers[p].Endpoint = words[1]
 		case "AllowedIPs":
-			for _, ip := range strings.Split(words[2], ",") {
+			for _, ip := range strings.Split(words[1], ",") {
 				c.Peers[p].AllowedIPs = append(c.Peers[p].AllowedIPs, strings.TrimSpace(ip))
 			}
 		case "PresharedKey":
-			c.Peers[p].PresharedKey = words[2]
+			c.Peers[p].PresharedKey = words[1]
 		case "PersistentKeepalive":
-			if words[2] == "off" {
+			if words[1] == "off" {
 				c.Peers[p].PersistentKeepalive = 0
 			} else {
-				c.Peers[p].PersistentKeepalive, err = strconv.Atoi(words[2])
+				c.Peers[p].PersistentKeepalive, err = strconv.Atoi(words[1])
 				if err != nil {
 					return c, fmt.Errorf("error parsing PersistentKeepalive: %v", err)
 				}
@@ -334,9 +337,9 @@ func ShowConfCtx(ctx context.Context, iface string) (Conf, error) {
 	return c, err
 }
 
-// SetOptPeer are options for peers for Set (wg set ... peer ...)
+// OptPeer are options for peers for Set (wg set ... peer ...)
 // only PublicKey is mandatory
-type SetOptPeer struct {
+type OptPeer struct {
 	PublicKey           string
 	Remove              bool
 	PskFpath            string
@@ -346,7 +349,7 @@ type SetOptPeer struct {
 }
 
 // Args serializes opts to cli args
-func (o SetOptPeer) Args() []string {
+func (o OptPeer) Args() []string {
 	args := []string{"peer", o.PublicKey}
 	if o.Remove {
 		return append(args, "remove")
@@ -366,18 +369,18 @@ func (o SetOptPeer) Args() []string {
 	return args
 }
 
-// SetOpt are options for Set (wg set)
+// Opt are options for Set (wg set)
 // Only Interface is mandatory
-type SetOpt struct {
+type Opt struct {
 	Interface    string
 	ListenPort   int
 	FwMark       string
 	PrivKeyFpath string
-	Peers        []SetOptPeer
+	Peers        []OptPeer
 }
 
 // Args serializes opts to cli args
-func (o SetOpt) Args() []string {
+func (o Opt) Args() []string {
 	args := []string{"set", o.Interface}
 	if o.ListenPort != 0 {
 		args = append(args, "listen-port", strconv.Itoa(o.ListenPort))
@@ -396,14 +399,14 @@ func (o SetOpt) Args() []string {
 
 // Set options on an interface
 // wg set ...
-func Set(opt SetOpt) error {
+func Set(opt Opt) error {
 	return SetCtx(context.Background(), opt)
 }
 
 // SetCtx options on an interface
 // ctx for process management
 // wg set ...
-func SetCtx(ctx context.Context, opt SetOpt) error {
+func SetCtx(ctx context.Context, opt Opt) error {
 	err := exec.CommandContext(ctx, Wg, opt.Args()...).Run()
 	if err != nil {
 		err = fmt.Errorf("set: %v", err)

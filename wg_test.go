@@ -12,6 +12,7 @@ var (
 	sf = "%v #%v \nexp: %v \ngot: %v"
 )
 
+// Interface -> bytes
 func TestInterfaceBytes(t *testing.T) {
 	cases := []struct {
 		I Interface
@@ -62,6 +63,7 @@ PrivateKey = thisIsALongPrivateKey
 	}
 }
 
+// Peer -> bytes
 func TestPeerBytes(t *testing.T) {
 	cases := []struct {
 		P Peer
@@ -76,11 +78,11 @@ func TestPeerBytes(t *testing.T) {
 			Peer{
 				PublicKey:  "a_short_public_key",
 				Endpoint:   "127.0.0.1/32",
-				AllowedIPs: []string{"1.1.1.1/32", "1.0.0/16", "10.0.0.0/8", "::1/128"},
+				AllowedIPs: []string{"1.1.1.1/32", "1.0.0.0/16", "10.0.0.0/8", "::1/128"},
 			},
 			[]byte(`[Peer]
 PublicKey = a_short_public_key
-AllowedIPs = 1.1.1.1/32,1.0.0/16,10.0.0.0/8,::1/128
+AllowedIPs = 1.1.1.1/32, 1.0.0.0/16, 10.0.0.0/8, ::1/128
 Endpoint = 127.0.0.1/32
 
 `),
@@ -119,50 +121,7 @@ PersistentKeepalive = 30
 	}
 }
 
-func TestNewConfBytes(t *testing.T) {
-	cases := []struct {
-		C Conf
-		B []byte
-	}{
-		{
-			Conf{},
-			[]byte(``),
-		},
-	}
-	for i, c := range cases {
-		conf, err := NewConfBytes(c.B)
-		if err != nil {
-			t.Errorf(se, "NewConfBytes", i, err)
-			continue
-		}
-		if !reflect.DeepEqual(conf, c.C) {
-			t.Errorf(sf, "NewConfBytes", i, c.C, conf)
-		}
-	}
-}
-func TestNewConfStatus(t *testing.T) {
-	cases := []struct {
-		C Conf
-		B []byte
-	}{
-		{
-			Conf{},
-			[]byte(``),
-		},
-	}
-	for i, c := range cases {
-		conf, err := NewConfStatus(c.B)
-		if err != nil {
-			t.Errorf(se, "NewConfStatus", i, err)
-			continue
-		}
-		if !reflect.DeepEqual(conf, c.C) {
-			t.Errorf(sf, "NewConfStatus", i, c.C, conf)
-		}
-	}
-
-}
-
+// Conf -> bytes
 func TestConfBytes(t *testing.T) {
 	cases := []struct {
 		C Conf
@@ -170,7 +129,34 @@ func TestConfBytes(t *testing.T) {
 	}{
 		{
 			Conf{},
-			[]byte(``),
+			[]byte(`[Interface]
+`),
+		}, {
+			Conf{
+				Interface{
+					ListenPort: 5555,
+					FwMark:     "0xca6c",
+					PrivateKey: "this_is_a_private_key",
+				},
+				[]Peer{
+					{
+						PublicKey:  "pubkey_a",
+						AllowedIPs: []string{"0.0.0.0/0", "::1/0"},
+						Endpoint:   "1.2.3.4/32",
+					},
+				},
+			},
+			[]byte(`[Interface]
+ListenPort = 5555
+FwMark = 0xca6c
+PrivateKey = this_is_a_private_key
+
+[Peer]
+PublicKey = pubkey_a
+AllowedIPs = 0.0.0.0/0, ::1/0
+Endpoint = 1.2.3.4/32
+
+`),
 		},
 	}
 	for i, c := range cases {
@@ -189,6 +175,126 @@ func TestConfBytes(t *testing.T) {
 
 		}
 	}
+}
+
+// bytes -> Conf
+func TestNewConfBytes(t *testing.T) {
+	cases := []struct {
+		C Conf
+		B []byte
+	}{
+		{
+			Conf{},
+			[]byte(``),
+		}, {
+			Conf{
+				Interface{
+					ListenPort: 5678,
+					FwMark:     "a_fwmark",
+					PrivateKey: "this_is_a_private_key",
+				},
+				[]Peer{
+					{
+						PublicKey:           "pubkey_a",
+						PresharedKey:        "preshared_key_a",
+						AllowedIPs:          []string{"ip_range/1", "ip_range/2", "ip_range/3"},
+						Endpoint:            "address/32",
+						PersistentKeepalive: 0,
+					}, {
+						PublicKey:           "pubkey_b",
+						PresharedKey:        "preshared_key_b",
+						AllowedIPs:          []string{"ip_range/1", "ip_range/2", "ip_range/3"},
+						Endpoint:            "address/32",
+						PersistentKeepalive: 30,
+					},
+				},
+			},
+			[]byte(`[Interface]
+PrivateKey = this_is_a_private_key
+ListenPort = 5678
+FwMark = a_fwmark
+[Peer]
+	PublicKey = pubkey_a
+	PresharedKey=preshared_key_a
+	AllowedIPs = ip_range/1,ip_range/2 , ip_range/3
+	Endpoint = address/32
+[Peer]
+PublicKey = pubkey_b
+
+PresharedKey= preshared_key_b
+AllowedIPs = ip_range/1
+AllowedIPs = ip_range/2, ip_range/3
+Endpoint   = address/32
+PersistentKeepalive = 30
+`),
+		},
+	}
+	for i, c := range cases {
+		conf, err := NewConfBytes(c.B)
+		if err != nil {
+			t.Errorf(se, "NewConfBytes", i, err)
+			continue
+		}
+		if !reflect.DeepEqual(conf, c.C) {
+			t.Errorf(sf, "NewConfBytes", i, c.C, conf)
+		}
+	}
+}
+
+// bytes (status) -> Conf
+func TestNewConfStatus(t *testing.T) {
+	cases := []struct {
+		C Conf
+		B []byte
+	}{
+		{
+			Conf{},
+			[]byte(``),
+		}, {
+			Conf{
+				Interface{
+					ListenPort: 52274,
+					PublicKey:  "this_is_a_public_key",
+					PrivateKey: "(hidden)",
+					FwMark:     "0xca6c",
+				},
+				[]Peer{
+					{
+						PublicKey:       "another_public_key",
+						Endpoint:        "1.2.3.4:51820",
+						AllowedIPs:      []string{"0.0.0.0/0"},
+						LatestHandshake: 5,
+						Received:        13631488,
+						Sent:            13680,
+					},
+				},
+			},
+			[]byte(`
+interface: wg0
+  public key: this_is_a_public_key
+  private key: (hidden)
+  listening port: 52274
+  fwmark: 0xca6c
+
+peer: another_public_key
+  endpoint: 1.2.3.4:51820
+  allowed ips: 0.0.0.0/0
+  latest handshake: 5 seconds ago
+  transfer: 13.00 MiB received, 13.36 KiB sent
+`),
+		},
+	}
+	for i, c := range cases {
+		conf, err := NewConfStatus(c.B)
+		if err != nil {
+			t.Errorf(se, "NewConfStatus", i, err)
+			continue
+		}
+		if !reflect.DeepEqual(conf, c.C) {
+			t.Errorf(sf, "NewConfStatus", i, c.C, conf)
+		}
+	}
+
 }
 
 func TestShow(t *testing.T) {
@@ -249,6 +355,7 @@ EOF
 		err := ioutil.WriteFile(tf, c.B, 0755)
 		if err != nil {
 			t.Errorf(sf, "Show setup", i, err)
+			continue
 		}
 		Wg = tf
 
@@ -263,22 +370,324 @@ EOF
 	}
 }
 
-func TestShowCtx(t *testing.T)           {}
-func TestShowInterfaces(t *testing.T)    {}
-func TestShowInterfacesCtx(t *testing.T) {}
-func TestShowConf(t *testing.T)          {}
-func TestShowConfCtx(t *testing.T)       {}
-func TestSetOptPeerArgs(t *testing.T)    {}
-func TestSetOptArgs(t *testing.T)        {}
-func TestSet(t *testing.T)               {}
-func TestSetCtx(t *testing.T)            {}
-func TestSetConf(t *testing.T)           {}
-func TestSetConfCtx(t *testing.T)        {}
-func TestAddConf(t *testing.T)           {}
-func TestAddConfCtx(t *testing.T)        {}
-func TestGenKey(t *testing.T)            {}
-func TestGenKeyCtx(t *testing.T)         {}
-func TestGenPsk(t *testing.T)            {}
-func TestGenPskCtx(t *testing.T)         {}
-func TestPubKey(t *testing.T)            {}
-func TestPubKeyCtx(t *testing.T)         {}
+func TestShowInterfaces(t *testing.T) {
+	cases := []struct {
+		I []string
+		B []byte
+	}{
+		{
+			[]string{},
+			[]byte(`#!/bin/env sh
+cat << EOF
+
+EOF
+`),
+		},
+		{
+			[]string{"wg0", "wg1", "wgWhat"},
+			[]byte(`#!/bin/env sh
+cat << EOR
+wg0 wg1 wgWhat
+EOF
+`),
+		},
+	}
+	for i, c := range cases {
+		err := ioutil.WriteFile(tf, c.B, 0755)
+		if err != nil {
+			t.Errorf(sf, "ShowInterfaces setup", i, err)
+			continue
+		}
+		Wg = tf
+
+		ifaces, err := ShowInterfaces()
+		if err != nil {
+			t.Errorf(se, "ShowInterfaces", i, err)
+			continue
+		}
+		if !reflect.DeepEqual(ifaces, c.I) {
+			t.Errorf(sf, "ShowInterfaces", i, c.I, ifaces)
+		}
+	}
+}
+
+// TODO add test cases
+func TestShowConf(t *testing.T) {
+	cases := []struct {
+		C Conf
+		B []byte
+	}{
+		{
+			Conf{},
+			[]byte(`#!/bin/env sh
+cat << EOR
+
+EOF
+`),
+		},
+	}
+	for i, c := range cases {
+		err := ioutil.WriteFile(tf, c.B, 0755)
+		if err != nil {
+			t.Errorf(sf, "ShowConf setup", i, err)
+			continue
+		}
+		Wg = tf
+
+		conf, err := ShowConf("iface")
+		if err != nil {
+			t.Errorf(se, "ShowConf", i, err)
+			continue
+		}
+		if !reflect.DeepEqual(conf, c.C) {
+			t.Errorf(sf, "ShowConf", i, c.C, conf)
+		}
+	}
+}
+
+// TODO add test cases
+func TestOptPeerArgs(t *testing.T) {
+	cases := []struct {
+		O OptPeer
+		A []string
+	}{
+		{
+			OptPeer{},
+			[]string{},
+		},
+	}
+	for i, c := range cases {
+		args := c.O.Args()
+		if !reflect.DeepEqual(args, c.A) {
+			t.Errorf(sf, "OptPeer", i, c.A, args)
+		}
+	}
+}
+
+// TODO add test cases
+func TestOptArgs(t *testing.T) {
+	cases := []struct {
+		O Opt
+		A []string
+	}{
+		{
+			Opt{},
+			[]string{},
+		},
+	}
+	for i, c := range cases {
+		args := c.O.Args()
+		if !reflect.DeepEqual(args, c.A) {
+			t.Errorf(sf, "Opt", i, c.A, args)
+		}
+	}
+}
+
+// TODO add test cases
+// not much more than Opt.Args()
+func TestSet(t *testing.T) {
+	cases := []struct {
+		O Opt
+		B []byte
+	}{
+		{
+			Opt{},
+			[]byte(`#!/bin/env sh
+cat << EOR
+
+EOF
+`),
+		},
+	}
+	for i, c := range cases {
+		err := ioutil.WriteFile(tf, c.B, 0755)
+		if err != nil {
+			t.Errorf(sf, "Set setup", i, err)
+			continue
+		}
+		Wg = tf
+
+		err = Set(c.O)
+		if err != nil {
+			t.Errorf(se, "Set", i, err)
+			continue
+		}
+	}
+}
+
+// TODO add test cases
+func TestSetConf(t *testing.T) {
+	cases := []struct {
+		F string
+		B []byte
+	}{
+		{
+			"/etc/wireguard/wg0.conf",
+			[]byte(`#!/bin/env sh
+cat << EOR
+
+EOF
+`),
+		},
+	}
+	for i, c := range cases {
+		err := ioutil.WriteFile(tf, c.B, 0755)
+		if err != nil {
+			t.Errorf(sf, "SetConf setup", i, err)
+			continue
+		}
+		Wg = tf
+
+		err = SetConf("iface", c.F)
+		if err != nil {
+			t.Errorf(se, "SetConf", i, err)
+			continue
+		}
+	}
+}
+
+// TODO add test cases
+func TestAddConf(t *testing.T) {
+	cases := []struct {
+		F string
+		B []byte
+	}{
+		{
+			"/etc/wireguard/wg0.conf",
+			[]byte(`#!/bin/env sh
+cat << EOR
+
+EOF
+`),
+		},
+	}
+	for i, c := range cases {
+		err := ioutil.WriteFile(tf, c.B, 0755)
+		if err != nil {
+			t.Errorf(sf, "AddConf setup", i, err)
+			continue
+		}
+		Wg = tf
+
+		err = AddConf("iface", c.F)
+		if err != nil {
+			t.Errorf(se, "AddConf", i, err)
+			continue
+		}
+	}
+}
+
+// TODO add test cases
+func TestGenKey(t *testing.T) {
+	cases := []struct {
+		K string
+		B []byte
+	}{
+		{
+			"generated_private_key",
+			[]byte(`#!/bin/env sh
+cat << EOR
+
+EOF
+`),
+		},
+	}
+	for i, c := range cases {
+		err := ioutil.WriteFile(tf, c.B, 0755)
+		if err != nil {
+			t.Errorf(sf, "GenKey setup", i, err)
+			continue
+		}
+		Wg = tf
+
+		key, err := GenKey()
+		if err != nil {
+			t.Errorf(se, "GenKey", i, err)
+			continue
+		}
+		if key != c.K {
+			t.Errorf(sf, "GenKey", i, c.K, key)
+		}
+	}
+}
+
+// TODO add test cases
+func TestGenPsk(t *testing.T) {
+	cases := []struct {
+		K string
+		B []byte
+	}{
+		{
+			"generated_private_key",
+			[]byte(`#!/bin/env sh
+cat << EOR
+
+EOF
+`),
+		},
+	}
+	for i, c := range cases {
+		err := ioutil.WriteFile(tf, c.B, 0755)
+		if err != nil {
+			t.Errorf(sf, "GenPsk setup", i, err)
+			continue
+		}
+		Wg = tf
+
+		key, err := GenPsk()
+		if err != nil {
+			t.Errorf(se, "GenPsk", i, err)
+			continue
+		}
+		if key != c.K {
+			t.Errorf(sf, "GenPsk", i, c.K, key)
+		}
+	}
+}
+
+// TODO add test cases
+func TestPubKey(t *testing.T) {
+	cases := []struct {
+		PubKey, PrivKey string
+		B               []byte
+	}{
+		{
+			"expected_public_key",
+			"inputted_private_key",
+			[]byte(`#!/bin/env sh
+cat << EOR
+
+EOF
+`),
+		},
+	}
+	for i, c := range cases {
+		err := ioutil.WriteFile(tf, c.B, 0755)
+		if err != nil {
+			t.Errorf(sf, "PubKey setup", i, err)
+			continue
+		}
+		Wg = tf
+
+		pubkey, err := PubKey(c.PrivKey)
+		if err != nil {
+			t.Errorf(se, "PubKey", i, err)
+			continue
+		}
+		if pubkey != c.PubKey {
+			t.Errorf(sf, "PubKey", i, c.PubKey, pubkey)
+		}
+	}
+}
+
+// The only thing gained by separately testing these is
+// testing exec.CommandContext handling of ctx
+// func TestShowCtx(t *testing.T) {}
+// func TestShowInterfacesCtx(t *testing.T) {}
+// func TestShowConfCtx(t *testing.T)       {}
+// func TestSetCtx(t *testing.T)            {}
+// func TestSetConfCtx(t *testing.T)        {}
+// func TestAddConfCtx(t *testing.T)        {}
+// func TestGenKeyCtx(t *testing.T)         {}
+// func TestGenPskCtx(t *testing.T)         {}
+// func TestPubKeyCtx(t *testing.T)         {}
