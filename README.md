@@ -11,4 +11,4 @@ Go lib for interfacing with `wg` cli through `exec.Command`
 
 ## Todo
 
-Write tests
+Write better tests
