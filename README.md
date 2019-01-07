@@ -4,6 +4,7 @@
 [![License](https://img.shields.io/github/license/seankhliao/go-wg.svg?style=for-the-badge)](githib.com/seankhliao/go-wg)
 [![Build Status](https://img.shields.io/travis-ci/seankhliao/go-wg.svg?style=for-the-badge)](https://travis-ci.org/seankhliao/go-wg)
 [![Codecov](https://img.shields.io/codecov/c/github/seankhliao/go-wg.svg?style=for-the-badge)](https://codecov.io/gh/seankhliao/go-wg)
+![Version](https://img.shields.io/github/tag/seankhliao/go-wg.svg?style=for-the-badge)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/seankhliao/go-wg?style=flat-square)](https://goreportcard.com/report/github.com/seankhliao/go-wg)
 
