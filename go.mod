@@ -1,1 +1,3 @@
-module github.com/seankhliao/go-wg
+module seankhliao.com/go-wg
+
+go 1.12
